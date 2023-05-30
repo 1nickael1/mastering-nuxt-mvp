@@ -22,23 +22,55 @@
 
 <script setup>
 //https://github.com/MasteringNuxt/mastering-nuxt-3/
-const course = useCourse();
+const course = await useCourse();
 const route = useRoute();
 
+const { chapterSlug, lessonSlug } = route.params;
+const lesson = await useLesson(chapterSlug, lessonSlug);
+
+definePageMeta({
+    middleware: [
+        async ({ params }, from) => {
+            const course = await useCourse();
+
+            const chapter = course.value.chapters.find(
+                (chapter) => chapter.slug === params.chapterSlug
+            );
+
+            if (!chapter) {
+                return abortNavigation(
+                    createError({
+                        statusCode: 404,
+                        message: 'Chapter not found',
+                    })
+                );
+            }
+
+            const lesson = chapter.lessons.find(
+                (lesson) => lesson.slug === params.lessonSlug
+            );
+
+            if (!lesson) {
+                return abortNavigation(
+                    createError({
+                        statusCode: 404,
+                        message: 'Lesson not found',
+                    })
+                );
+            }
+        },
+        'auth'
+    ]
+})
+
 const chapter = computed(() => {
-    return course.chapters.find(
+    return course.value.chapters.find(
         (chapter) => chapter.slug === route.params.chapterSlug
     );
 });
 
-const lesson = computed(() => {
-    return chapter.value.lessons.find(
-        (lesson) => lesson.slug === route.params.lessonSlug
-    );
-});
-
 const title = computed(() => {
-    return `${lesson.value.title} - ${course.title}`;
+    return `${lesson.value.title} - ${course.value.title}`;
 })
 
 useHead({
@@ -48,11 +80,11 @@ useHead({
 const progress = useLocalStorage('progress', []);
 
 const isLessonComplete = computed(() => {
-    if(!progress.value[chapter.value.number - 1]) {
+    if (!progress.value[chapter.value.number - 1]) {
         return false;
     }
 
-    if(!progress.value[chapter.value.number - 1][lesson.value.number - 1]) {
+    if (!progress.value[chapter.value.number - 1][lesson.value.number - 1]) {
         return false;
     }
 
@@ -60,8 +92,8 @@ const isLessonComplete = computed(() => {
 });
 
 const toggleComplete = () => {
-    if(!progress.value[chapter.value.number - 1]) {
-        progress.value[chapter.value.number -1] = [];
+    if (!progress.value[chapter.value.number - 1]) {
+        progress.value[chapter.value.number - 1] = [];
     }
 
     progress.value[chapter.value.number - 1][lesson.value.number - 1] = !isLessonComplete.value;
